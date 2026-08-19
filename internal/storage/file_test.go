@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -20,7 +21,7 @@ func TestSaveCreatesAndReplacesAtomically(t *testing.T) {
 	if loaded.Fingerprint != fp || string(loaded.Data) != "Root\n" {
 		t.Fatalf("loaded = %#v %q", loaded.Fingerprint, loaded.Data)
 	}
-	if loaded.Mode != 0o640 {
+	if runtime.GOOS != "windows" && loaded.Mode != 0o640 {
 		t.Fatalf("mode = %o", loaded.Mode)
 	}
 
@@ -65,7 +66,15 @@ func TestLoadResolvesSymlink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Path != target {
-		t.Fatalf("resolved path = %q, want %q", loaded.Path, target)
+	resolvedInfo, err := os.Stat(loaded.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetInfo, err := os.Stat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !os.SameFile(resolvedInfo, targetInfo) {
+		t.Fatalf("resolved path %q does not identify target %q", loaded.Path, target)
 	}
 }

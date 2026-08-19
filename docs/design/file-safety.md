@@ -10,8 +10,8 @@ mode, write the complete content, flush it, close it, and then rename it over
 the target.
 
 Creating the temporary file beside the target keeps the replacement on the same
-filesystem. Existing file permissions are preserved. New files use `0644`
-permissions.
+filesystem. On Unix-like systems, existing file permissions are preserved and
+new files use `0644` permissions. Windows does not enforce Unix permission bits.
 
 ## External-change protection
 

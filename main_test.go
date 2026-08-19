@@ -3,8 +3,11 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/Thelost77/beech/internal/storage"
 )
 
 func TestOpenInitialExistingMarkdownFile(t *testing.T) {
@@ -24,7 +27,7 @@ func TestOpenInitialExistingMarkdownFile(t *testing.T) {
 	if !initial.Collapsed[child] {
 		t.Fatal("collapsed state was not loaded")
 	}
-	if initial.FileMode != 0o640 {
+	if runtime.GOOS != "windows" && initial.FileMode != 0o640 {
 		t.Fatalf("mode = %o", initial.FileMode)
 	}
 }
@@ -40,7 +43,11 @@ func TestOpenInitialImportsHMMAsUnsavedMarkdown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantTarget := filepath.Join(dir, "ideas.md")
+	loaded, err := storage.Load(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantTarget := strings.TrimSuffix(loaded.Path, filepath.Ext(loaded.Path)) + ".md"
 	if initial.Path != "" || initial.SuggestedPath != wantTarget || !initial.Imported || !initial.Dirty {
 		t.Fatalf("path=%q suggested=%q imported=%v dirty=%v", initial.Path, initial.SuggestedPath, initial.Imported, initial.Dirty)
 	}
