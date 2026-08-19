@@ -1,0 +1,8 @@
+/beech
+/ideas.hmm
+/ideas.md
+*.test
+*.out
+.DS_Store
+.idea/
+.vscode/
