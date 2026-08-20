@@ -67,13 +67,12 @@ func (m *Model) viewHeader(width int) string {
 }
 
 func (m *Model) mapView(width, height int) []string {
-	renderLayout := m.layoutForRender()
 	canvas := ui.NewCanvas(width, height)
-	offsetY := max(0, (height-renderLayout.Height)/2)
+	offsetY := max(0, (height-m.layout.Height)/2)
 	branches := m.branchIndexes()
 	activePath := m.activePath()
-	for _, connector := range renderLayout.Connectors {
-		owner := renderLayout.Nodes[connector.Owner]
+	for _, connector := range m.layout.Connectors {
+		owner := m.layout.Nodes[connector.Owner]
 		style := ui.CellStyle{
 			Role:     ui.RoleConnector,
 			Branch:   branches[connector.Owner],
@@ -82,14 +81,9 @@ func (m *Model) mapView(width, height int) []string {
 		}
 		canvas.PutConnector(connector.X-m.viewportX, connector.Y+offsetY-m.viewportY, connector.Join, style)
 	}
-	for _, id := range renderLayout.Order {
-		node := renderLayout.Nodes[id]
-		baseStyle := m.nodeCellStyleWithLayout(id, renderLayout, branches, activePath)
-		isEditing := m.mode == modeEdit && m.edit != nil && id == m.edit.Target
-		cursorLine, cursorX, cursorText := 0, 0, ""
-		if isEditing {
-			cursorLine, cursorX, cursorText = inlineEditCursor(m.nodeInput.Value(), m.nodeInput.Position(), node.Lines)
-		}
+	for _, id := range m.layout.Order {
+		node := m.layout.Nodes[id]
+		baseStyle := m.nodeCellStyle(id)
 		for row, line := range node.Lines {
 			y := node.Y + row + offsetY - m.viewportY
 			x := node.X - m.viewportX
@@ -97,16 +91,6 @@ func (m *Model) mapView(width, height int) []string {
 				background := baseStyle
 				background.Role = ui.RoleNone
 				canvas.PutText(x, y, strings.Repeat(" ", node.Width), background)
-			}
-			if isEditing {
-				canvas.PutText(x+1, y, line, baseStyle)
-				if row == cursorLine && !m.nodeInput.Cursor.Blink {
-					cursorStyle := baseStyle
-					cursorStyle.Role = ui.RoleInlineCursor
-					cursorStyle.Feedback = ui.FeedbackNone
-					canvas.PutText(x+1+cursorX, y, cursorText, cursorStyle)
-				}
-				continue
 			}
 			textX := x + 1
 			for _, span := range highlight.Parse(line) {
@@ -127,13 +111,6 @@ func (m *Model) mapView(width, height int) []string {
 		}
 	}
 	return canvas.Lines(m.styles.RenderCell)
-}
-
-func (m *Model) layoutForRender() layout.Result {
-	if m.mode == modeEdit && m.edit != nil {
-		return m.edit.Layout
-	}
-	return m.layout
 }
 
 func (m *Model) nodeCellStyle(id document.NodeID) ui.CellStyle {
@@ -214,7 +191,7 @@ func (m *Model) viewFooter(width int) string {
 	} else {
 		switch m.mode {
 		case modeEdit:
-			content = m.styles.Muted.Render("enter save  •  esc cancel")
+			content = m.nodeInput.View()
 		case modeSaveAs:
 			content = m.pathInput.View()
 		case modeHelp:

@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/Thelost77/beech/internal/document"
-	"github.com/Thelost77/beech/internal/layout"
 	"github.com/Thelost77/beech/internal/outline"
 	"github.com/Thelost77/beech/internal/storage"
 	"github.com/Thelost77/beech/internal/ui"
@@ -29,8 +28,8 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.pathInput.Width = max(10, m.viewWidth()-4)
-		if m.mode == modeEdit && m.edit != nil {
-			m.refreshEditLayout()
+		if m.mode == modeEdit {
+			m.nodeInput.Width = max(10, m.viewWidth())
 		} else {
 			m.ensureSelectedVisible()
 		}
@@ -184,33 +183,15 @@ func (m *Model) beginEdit(target document.NodeID, value string, before *historyE
 	m.mode = modeEdit
 	m.edit = &editSession{Target: target, Before: before}
 	m.nodeInput.Prompt = ""
+	m.nodeInput.Width = max(10, m.viewWidth())
 	m.nodeInput.SetValue(value)
 	m.nodeInput.CursorEnd()
 	m.clearStatus()
-	m.refreshEditLayout()
-}
-
-func (m *Model) refreshEditLayout() {
-	if m.edit == nil {
-		return
-	}
-	options := layout.DefaultOptions()
-	options.NodeText = map[document.NodeID]string{m.edit.Target: m.nodeInput.Value()}
-	m.edit.Layout = layout.Compute(m.doc, m.collapsed, options)
-	node := m.edit.Layout.Nodes[m.edit.Target]
-	m.edit.EditorWidth = max(1, node.Width-1)
-	m.nodeInput.Width = m.edit.EditorWidth
-	m.nodeInput.SetCursor(m.nodeInput.Position())
-	m.ensureSelectedVisibleIn(m.edit.Layout)
 }
 
 func (m *Model) updateNodeInput(msg tea.Msg) tea.Cmd {
-	before := m.nodeInput.Value()
 	var cmd tea.Cmd
 	m.nodeInput, cmd = m.nodeInput.Update(msg)
-	if m.nodeInput.Value() != before {
-		m.refreshEditLayout()
-	}
 	return cmd
 }
 

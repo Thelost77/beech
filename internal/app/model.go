@@ -32,10 +32,8 @@ type historyEntry struct {
 }
 
 type editSession struct {
-	Target      document.NodeID
-	Before      *historyEntry
-	Layout      layout.Result
-	EditorWidth int
+	Target document.NodeID
+	Before *historyEntry
 }
 
 type savedMsg struct {
@@ -115,7 +113,7 @@ func New(initial InitialDocument) *Model {
 	}
 	nodeInput := textinput.New()
 	nodeInput.CharLimit = 1024
-	nodeInput.Width = 43
+	nodeInput.Width = 60
 	pathInput := textinput.New()
 	pathInput.Prompt = "› "
 	pathInput.CharLimit = 4096

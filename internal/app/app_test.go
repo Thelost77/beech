@@ -16,7 +16,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/rivo/uniseg"
 )
 
 func newTestModel(t *testing.T) *Model {
@@ -314,154 +313,91 @@ func TestSaveAsRejectsNonMarkdownExtension(t *testing.T) {
 	}
 }
 
-func TestInlineEditKeepsCompleteValueWhenOnlyEndCursorNeedsPadding(t *testing.T) {
-	doc := document.New("Wyśmienite")
-	data, err := outline.Serialize(doc, nil, outline.DefaultStyle())
-	if err != nil {
-		t.Fatal(err)
-	}
-	m := New(InitialDocument{Document: doc, Style: outline.DefaultStyle(), SavedData: data})
-	updateModel(m, tea.WindowSizeMsg{Width: 80, Height: 24})
-	updateModel(m, keyMsg("e"))
-	if got, want := m.nodeInput.Width, uniseg.StringWidth("Wyśmienite")+1; got != want {
-		t.Fatalf("inline width = %d, want current value plus cursor %d", got, want)
-	}
-	if view := ansi.Strip(m.View()); !strings.Contains(view, "Wyśmienite") {
-		t.Fatalf("inline editor hid a fitting character: %q", view)
-	}
-}
-
-func TestEditRendersInlineAndKeepsFooterForHints(t *testing.T) {
+func TestEditingUsesBottomInputLineWithStaticMap(t *testing.T) {
 	m := newTestModel(t)
+	root := m.selected
+	before := m.View()
+	beforeLayout := m.layout
+	beforeViewportX, beforeViewportY := m.viewportX, m.viewportY
+
 	updateModel(m, keyMsg("e"))
-	updateModel(m, keyMsg(" inline"))
+	if m.nodeInput.Value() != "Root" {
+		t.Fatalf("edit input = %q, want the current node text", m.nodeInput.Value())
+	}
+	if m.doc.Text(root) != "Root" || !reflect.DeepEqual(m.layout, beforeLayout) {
+		t.Fatal("entering edit changed the committed map")
+	}
+
+	updateModel(m, keyMsg(" changed"))
 	view := m.View()
 	lines := strings.Split(view, "\n")
-	if m.nodeInput.Prompt != "" {
-		t.Fatalf("inline editor prompt = %q", m.nodeInput.Prompt)
-	}
-	if !strings.Contains(view, m.nodeInput.Value()) {
-		t.Fatalf("edited value %q is not rendered in the map: %q", m.nodeInput.Value(), view)
-	}
 	footer := lines[len(lines)-1]
-	if !strings.Contains(footer, "enter save") || strings.Contains(footer, "Root inline") {
-		t.Fatalf("footer does not contain edit hints: %q", footer)
+	if !strings.Contains(footer, "Root changed") {
+		t.Fatalf("typed text is not shown on the bottom input line: %q", footer)
 	}
-}
+	if !strings.Contains(view, "Root") {
+		t.Fatal("map no longer shows the edited node")
+	}
+	if m.doc.Text(root) != "Root" || !reflect.DeepEqual(m.layout, beforeLayout) {
+		t.Fatal("typing changed the committed map before Enter")
+	}
+	if m.viewportX != beforeViewportX || m.viewportY != beforeViewportY {
+		t.Fatalf("typing scrolled the viewport: %d,%d", m.viewportX, m.viewportY)
+	}
 
-func TestEnteringInlineEditUsesCurrentValuePlusCursor(t *testing.T) {
-	m := newTestModel(t)
-	root := m.selected
-	beforeChildX := m.layout.Nodes[m.doc.Children(root)[0]].X
-	updateModel(m, keyMsg("e"))
-	editLayout := m.layoutForRender()
-	if m.edit == nil || m.edit.EditorWidth != uniseg.StringWidth("Root")+1 {
-		t.Fatalf("editor width = %d", m.edit.EditorWidth)
-	}
-	if editLayout.Nodes[root].Width != m.edit.EditorWidth+1 {
-		t.Fatalf("reserved node width = %d, editor width = %d", editLayout.Nodes[root].Width, m.edit.EditorWidth)
-	}
-	if editLayout.Nodes[m.doc.Children(root)[0]].X != beforeChildX {
-		t.Fatal("entering edit changed geometry even though title plus cursor fit existing padding")
-	}
-}
-
-func TestTypingDynamicallyResizesEditedBranch(t *testing.T) {
-	m := newTestModel(t)
-	root := m.selected
-	child := m.doc.Children(root)[0]
-	updateModel(m, keyMsg("e"))
-	before := m.layoutForRender()
-	beforeEditorWidth := m.edit.EditorWidth
-	beforeChildX := before.Nodes[child].X
-
-	updateModel(m, keyMsg("x"))
-	after := m.layoutForRender()
-	if m.edit.EditorWidth != beforeEditorWidth+1 {
-		t.Fatalf("editor width = %d, want %d", m.edit.EditorWidth, beforeEditorWidth+1)
-	}
-	if after.Nodes[child].X != beforeChildX+1 {
-		t.Fatalf("child x = %d, want dynamic shift to %d", after.Nodes[child].X, beforeChildX+1)
-	}
-	for index, line := range strings.Split(m.View(), "\n") {
-		if width := lipgloss.Width(line); width > m.viewWidth() {
-			t.Fatalf("inline edit line %d width = %d, want at most %d", index, width, m.viewWidth())
+	for index := range lines {
+		if index < len(lines)-1 && strings.Split(before, "\n")[index] != lines[index] {
+			t.Fatalf("typing changed map row %d", index)
 		}
 	}
-}
 
-func TestInlineEditAddsAndRemovesWrappedRowsDynamically(t *testing.T) {
-	m := newTestModel(t)
-	updateModel(m, keyMsg("e"))
-	for range 60 {
-		updateModel(m, keyMsg("x"))
-	}
-	node := m.layoutForRender().Nodes[m.selected]
-	if m.edit.EditorWidth != 43 || node.Height != 2 {
-		t.Fatalf("64-cell edit geometry = editor %d height %d", m.edit.EditorWidth, node.Height)
-	}
-	for range 21 {
-		updateModel(m, keyMsg("x"))
-	}
-	node = m.layoutForRender().Nodes[m.selected]
-	if node.Height != 3 {
-		t.Fatalf("85-cell edit height = %d, want 3", node.Height)
-	}
-	for range 85 {
-		updateModel(m, tea.KeyMsg{Type: tea.KeyBackspace})
-	}
-	if m.nodeInput.Value() != "" {
-		t.Fatalf("input after deletion = %q", m.nodeInput.Value())
-	}
-	if m.edit.EditorWidth != 1 || m.layoutForRender().Nodes[m.selected].Width != 2 || m.layoutForRender().Nodes[m.selected].Height != 1 {
-		t.Fatalf("empty editor geometry = editor %d node %dx%d", m.edit.EditorWidth, m.layoutForRender().Nodes[m.selected].Width, m.layoutForRender().Nodes[m.selected].Height)
-	}
-}
-
-func TestInlineEditWrapsAndUnwrapsAtNormalNodeWidth(t *testing.T) {
-	m := newTestModel(t)
-	updateModel(m, keyMsg("e"))
-	m.nodeInput.SetValue(strings.Repeat("a", 43))
-	m.nodeInput.CursorEnd()
-	m.refreshEditLayout()
-	node := m.layoutForRender().Nodes[m.selected]
-	if node.Height != 2 || len(node.Lines) != 2 {
-		t.Fatalf("43-cell edit geometry = height %d lines %q", node.Height, node.Lines)
-	}
-	m.nodeInput.SetValue(strings.Repeat("a", 42))
-	m.nodeInput.CursorEnd()
-	m.refreshEditLayout()
-	node = m.layoutForRender().Nodes[m.selected]
-	if node.Height != 1 || len(node.Lines) != 1 {
-		t.Fatalf("42-cell edit geometry = height %d lines %q", node.Height, node.Lines)
-	}
-}
-
-func TestCommittedLayoutMatchesWrappedEditPreview(t *testing.T) {
-	m := newTestModel(t)
-	updateModel(m, keyMsg("e"))
-	m.nodeInput.SetValue(strings.Repeat("a", 43))
-	m.nodeInput.CursorEnd()
-	m.refreshEditLayout()
-	preview := m.layoutForRender()
 	updateModel(m, tea.KeyMsg{Type: tea.KeyEnter})
-	if !reflect.DeepEqual(m.layout, preview) {
-		t.Fatal("committed layout differs from the wrapped edit preview")
+	if m.doc.Text(root) != "Root changed" {
+		t.Fatalf("committed text = %q", m.doc.Text(root))
+	}
+	if !m.Dirty() {
+		t.Fatal("commit did not mark the document dirty")
+	}
+	for index, line := range strings.Split(ansi.Strip(m.View()), "\n") {
+		if index < m.height-1 && strings.Contains(line, "Root changed") {
+			return
+		}
+	}
+	t.Fatal("map does not show the committed title")
+}
+
+func TestEditingScrollsLongInputHorizontally(t *testing.T) {
+	m := newTestModel(t)
+	updateModel(m, keyMsg("e"))
+	for range 100 {
+		updateModel(m, keyMsg("x"))
+	}
+	footer := strings.Split(m.View(), "\n")
+	input := footer[len(footer)-1]
+	if width := lipgloss.Width(input); width > m.viewWidth() {
+		t.Fatalf("input line width = %d, want at most %d", width, m.viewWidth())
+	}
+	if !strings.Contains(ansi.Strip(input), "x") {
+		t.Fatal("scrolled input line lost the typed text")
 	}
 }
 
-func TestCursorMovementDoesNotRecomputeDynamicEditLayout(t *testing.T) {
+func TestCursorBlinkChangesOnlyTheInputLine(t *testing.T) {
 	m := newTestModel(t)
-	updateModel(m, keyMsg("e"))
-	updateModel(m, keyMsg(" with additional text"))
-	before := m.layoutForRender()
-	beforePosition := m.nodeInput.Position()
-	updateModel(m, tea.KeyMsg{Type: tea.KeyLeft})
-	if m.nodeInput.Position() >= beforePosition {
-		t.Fatal("cursor did not move left")
+	blinkCmd := updateModel(m, keyMsg("e"))
+	if blinkCmd == nil {
+		t.Fatal("edit did not start cursor blinking")
 	}
-	if !reflect.DeepEqual(m.layoutForRender(), before) {
-		t.Fatal("cursor movement recomputed edit geometry")
+	updateModel(m, keyMsg(" more text"))
+	before := m.View()
+	updateModel(m, blinkCmd())
+	after := m.View()
+	beforeLines := strings.Split(before, "\n")
+	afterLines := strings.Split(after, "\n")
+	for index := range beforeLines {
+		if index != len(beforeLines)-1 && beforeLines[index] != afterLines[index] {
+			t.Fatalf("cursor blink changed map row %d", index)
+		}
 	}
 }
 
@@ -473,39 +409,6 @@ func TestCancelRestoresCommittedLayoutExactly(t *testing.T) {
 	updateModel(m, tea.KeyMsg{Type: tea.KeyEsc})
 	if !reflect.DeepEqual(m.layout, before) {
 		t.Fatal("cancel changed committed layout")
-	}
-}
-
-func TestCursorBlinkDoesNotMoveInlineEditLayout(t *testing.T) {
-	m := newTestModel(t)
-	blinkCmd := updateModel(m, keyMsg("e"))
-	if blinkCmd == nil {
-		t.Fatal("edit did not start cursor blinking")
-	}
-	beforeViewportX, beforeViewportY := m.viewportX, m.viewportY
-	beforeFrame := m.View()
-	before := ansi.Strip(beforeFrame)
-	selectedNode := m.layoutForRender().Nodes[m.selected]
-	editRow := 1 + selectedNode.Y + m.mapOffsetY() - m.viewportY
-	updateModel(m, blinkCmd())
-	afterFrame := m.View()
-	after := ansi.Strip(afterFrame)
-	if m.viewportX != beforeViewportX || m.viewportY != beforeViewportY {
-		t.Fatalf("cursor blink moved viewport: %d,%d -> %d,%d", beforeViewportX, beforeViewportY, m.viewportX, m.viewportY)
-	}
-	beforeLines := strings.Split(beforeFrame, "\n")
-	afterLines := strings.Split(afterFrame, "\n")
-	for index := range beforeLines {
-		if index != editRow && beforeLines[index] != afterLines[index] {
-			t.Fatalf("cursor blink changed non-editor row %d", index)
-		}
-	}
-	for _, label := range []string{"First"} {
-		beforeRow, beforeColumn := textPosition(before, label)
-		afterRow, afterColumn := textPosition(after, label)
-		if beforeRow != afterRow || beforeColumn != afterColumn {
-			t.Fatalf("%s moved after cursor blink: %d,%d -> %d,%d", label, beforeRow, beforeColumn, afterRow, afterColumn)
-		}
 	}
 }
 

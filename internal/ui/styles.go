@@ -7,14 +7,13 @@ const BranchColorCount = 5
 
 // Styles is Beech's curated Everforest interface palette.
 type Styles struct {
-	Title        lipgloss.Style
-	Text         lipgloss.Style
-	Muted        lipgloss.Style
-	Accent       lipgloss.Style
-	Connector    lipgloss.Style
-	Error        lipgloss.Style
-	Status       lipgloss.Style
-	InlineCursor lipgloss.Style
+	Title     lipgloss.Style
+	Text      lipgloss.Style
+	Muted     lipgloss.Style
+	Accent    lipgloss.Style
+	Connector lipgloss.Style
+	Error     lipgloss.Style
+	Status    lipgloss.Style
 
 	foreground         lipgloss.Color
 	selectedBackground lipgloss.Color
@@ -50,7 +49,6 @@ func DefaultStyles() Styles {
 		Connector:          lipgloss.NewStyle().Foreground(border),
 		Error:              lipgloss.NewStyle().Foreground(errorColor).Bold(true),
 		Status:             lipgloss.NewStyle().Foreground(muted).Background(background),
-		InlineCursor:       lipgloss.NewStyle().Foreground(background).Background(accent).Bold(true),
 		foreground:         foreground,
 		selectedBackground: selected,
 		accentColor:        accent,
@@ -110,14 +108,12 @@ func (s Styles) cellStyle(key CellStyle) lipgloss.Style {
 		style = style.Foreground(s.purpleColor)
 	case RoleSyntax:
 		style = s.Muted
-	case RoleInlineCursor:
-		style = s.InlineCursor
 	}
 
 	if key.Active && (key.Role == RoleRoot || key.Role == RoleFirstBranch || key.Role == RoleBranch) {
 		style = style.Bold(true)
 	}
-	if key.Selected && key.Role != RoleInlineCursor {
+	if key.Selected {
 		style = style.Background(s.selectedBackground).Foreground(s.foreground).Bold(true)
 	}
 	if key.Feedback != FeedbackNone {

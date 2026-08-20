@@ -62,7 +62,6 @@ type Options struct {
 	LevelGap     int
 	SiblingGap   int
 	RootGap      int
-	NodeText     map[document.NodeID]string
 }
 
 // DefaultOptions returns the curated Beech layout defaults.
@@ -100,11 +99,6 @@ func Compute(doc *document.Document, collapsed map[document.NodeID]bool, options
 	var collect func(document.NodeID, int)
 	collect = func(id document.NodeID, depth int) {
 		text := doc.Text(id)
-		textOverridden := false
-		if override, exists := options.NodeText[id]; exists {
-			text = override
-			textOverridden = true
-		}
 		children := doc.Children(id)
 		visibleChildren := children
 		collapseCount := 0
@@ -114,9 +108,6 @@ func Compute(doc *document.Document, collapsed map[document.NodeID]bool, options
 		}
 		lines := WrapText(text, options.MaxNodeWidth)
 		width := 1
-		if textOverridden && text == "" {
-			width = 0
-		}
 		for _, line := range lines {
 			width = max(width, uniseg.StringWidth(line))
 		}

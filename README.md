@@ -12,7 +12,7 @@ Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) and
 ## Features
 
 - Open or create Markdown outlines
-- Create and edit nodes inline with live wrapping
+- Create and edit nodes on a bottom input line, h-m-m style
 - Cut, copy, paste, reorder, promote, and demote complete subtrees
 - Navigate spatially with Vim-style keys or arrows
 - Collapse branches and persist their state in the Markdown file
@@ -82,10 +82,9 @@ Keys are context-specific. Press `?` in Beech for the complete active help.
 | `Q` | Discard changes and quit |
 | `?` | Toggle help |
 
-Node editing appears directly at the selected map position. The field grows or
-shrinks with its value and wraps at the same 42-cell limit as committed nodes.
-Only the edited node's descendants reflow. Enter commits the displayed preview;
-Esc cancels and restores the original layout.
+Node editing opens a full-width input line at the bottom of the screen,
+following h-m-m. The map stays frozen while you type and updates once when
+you press Enter. Esc cancels and restores the original state.
 
 ## Markdown format
 

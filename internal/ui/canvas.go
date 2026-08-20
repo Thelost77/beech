@@ -26,7 +26,6 @@ const (
 	RoleLink
 	RoleTag
 	RoleSyntax
-	RoleInlineCursor
 )
 
 // FeedbackKind describes a short-lived action pulse.

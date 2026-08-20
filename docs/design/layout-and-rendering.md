@@ -23,26 +23,21 @@ vertically in the terminal.
 Collapsed descendants do not participate in visible layout. The collapsed node
 shows a `▸ N` marker where `N` is its hidden descendant count.
 
-## Inline editing
+## Node editing
 
-Inline editing uses the same wrapping function and 42-cell text limit as the
-committed layout.
-
-The editor starts at the current wrapped value plus one cursor cell. Inserting
-or deleting text recomputes the transient edit layout. Crossing the 42-cell
-boundary adds or removes a row immediately. Only the edited node's descendants
-may move horizontally; vertical changes follow normal subtree measurement.
-
-Cursor movement and cursor blink messages must not recompute geometry. Enter
-commits the displayed preview. Esc restores the original document and layout.
+Node titles are edited on a bottom input line, following h-m-m. While the
+input is active, the map keeps the committed layout and viewport: typing,
+cursor movement, and cursor blink never recompute geometry or scroll. The
+input scrolls horizontally when the value exceeds the terminal width. Enter
+applies the value and rebuilds the layout once; Esc cancels and restores the
+previous document state.
 
 Node editing and Save As use separate text input models.
 
 ## Rendering
 
-All map content, including inline input and its cursor, is written through the
-grapheme-aware `ui.Canvas`. Do not splice styled ANSI fragments into rendered
-canvas rows.
+All map content is written through the grapheme-aware `ui.Canvas`. Do not
+splice styled ANSI fragments into rendered canvas rows.
 
 Every frame has exactly the terminal height, and every row stays below the full
 terminal width to avoid bottom-right automatic wrapping.

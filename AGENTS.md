@@ -44,13 +44,9 @@ go vet ./...
 - Resolve visual priority as selection, feedback, Markdown token, structure.
 - Position children relative to their parent. A node in one branch must never
   shift an unrelated branch horizontally.
-- Render inline editing through `ui.Canvas`. Do not splice styled ANSI strings
-  into rendered canvas rows.
-- Size an inline editor to the current wrapped value plus one cursor cell.
-  Wrap at the same 42-cell limit as committed nodes and recompute its edit
-  layout only when the value changes. Cursor movement and timer events must not
-  affect geometry. Parent-relative layout must keep unrelated branches fixed
-  while edited descendants move.
+- Edit node titles on the bottom input line, like h-m-m. Keep the map and
+  its layout frozen while typing; apply the new title and rebuild the layout
+  once, on commit.
 - Keep node editing and Save As in separate text input models.
 - Capture values in asynchronous commands. Do not capture the application model.
 - `esc` closes or cancels the active mode. It never quits.
