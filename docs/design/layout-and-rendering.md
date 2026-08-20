@@ -32,7 +32,12 @@ input scrolls horizontally when the value exceeds the terminal width. Enter
 applies the value and rebuilds the layout once; Esc cancels and restores the
 previous document state.
 
-Node editing and Save As use separate text input models.
+Node editing and search use separate text input models. Search follows the
+same rules: `/` opens the bottom line empty, Enter jumps to the next match in
+document order, and `n` and `N` cycle forward and backward with the last
+query. Matching is case-insensitive fuzzy matching (`sahilm/fuzzy`): query
+characters must appear in order but not necessarily adjacent. Matches keep
+document order. An empty Enter clears the query.
 
 ## Rendering
 

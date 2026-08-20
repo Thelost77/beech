@@ -23,6 +23,7 @@ const (
 	modeEdit
 	modeSaveAs
 	modeHelp
+	modeSearch
 )
 
 type historyEntry struct {
@@ -73,10 +74,11 @@ type Model struct {
 	width     int
 	height    int
 
-	mode      mode
-	nodeInput textinput.Model
-	pathInput textinput.Model
-	edit      *editSession
+	mode        mode
+	nodeInput   textinput.Model
+	pathInput   textinput.Model
+	searchInput textinput.Model
+	edit        *editSession
 
 	undo []historyEntry
 	redo []historyEntry
@@ -99,6 +101,7 @@ type Model struct {
 	statusGeneration uint64
 	err              error
 	styles           ui.Styles
+	searchQuery      string
 }
 
 // New creates the root application model.
@@ -118,6 +121,10 @@ func New(initial InitialDocument) *Model {
 	pathInput.Prompt = "› "
 	pathInput.CharLimit = 4096
 	pathInput.Width = 60
+	searchInput := textinput.New()
+	searchInput.Prompt = "search › "
+	searchInput.CharLimit = 1024
+	searchInput.Width = 60
 
 	m := &Model{
 		doc:           doc,
@@ -133,6 +140,7 @@ func New(initial InitialDocument) *Model {
 		dirty:         initial.Dirty,
 		nodeInput:     nodeInput,
 		pathInput:     pathInput,
+		searchInput:   searchInput,
 		styles:        ui.DefaultStyles(),
 	}
 	m.configureInputStyles()

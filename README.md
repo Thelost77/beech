@@ -67,12 +67,15 @@ Keys are context-specific. Press `?` in Beech for the complete active help.
 | `enter`, `o` | Create a sibling |
 | `tab`, `O` | Create a child |
 | `e`, `i` | Edit the selected node |
+| `E`, `I` | Edit the node, replacing its text |
 | `J`, `K` | Move the node down or up |
 | `[`, `]` | Promote or demote the node |
 | `d` | Cut a subtree |
 | `y` | Copy a subtree |
 | `p`, `P` | Paste as child or sibling |
 | `space` | Collapse or expand |
+| `/` | Search node titles |
+| `n`, `N` | Next or previous match |
 | `u`, `ctrl+r` | Undo or redo |
 | `c` | Center the selected node |
 | `g` | Select the first root |
@@ -84,7 +87,9 @@ Keys are context-specific. Press `?` in Beech for the complete active help.
 
 Node editing opens a full-width input line at the bottom of the screen,
 following h-m-m. The map stays frozen while you type and updates once when
-you press Enter. Esc cancels and restores the original state.
+you press Enter. Esc cancels and restores the original state. Search works the
+same way: `/` opens the bottom line, Enter jumps to the first match, and `n`
+and `N` cycle forward and backward.
 
 ## Markdown format
 

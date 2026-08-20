@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/Thelost77/beech/internal/document"
@@ -96,19 +97,5 @@ func describeNodeAction(action, title string, count int) string {
 	if count <= 1 {
 		return action + " “" + title + "”"
 	}
-	return action + " “" + title + "” and " + itoa(count-1) + " descendants"
-}
-
-func itoa(value int) string {
-	if value == 0 {
-		return "0"
-	}
-	var digits [20]byte
-	index := len(digits)
-	for value > 0 {
-		index--
-		digits[index] = byte('0' + value%10)
-		value /= 10
-	}
-	return string(digits[index:])
+	return action + " “" + title + "” and " + strconv.Itoa(count-1) + " descendants"
 }

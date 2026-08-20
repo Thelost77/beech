@@ -412,6 +412,191 @@ func TestCancelRestoresCommittedLayoutExactly(t *testing.T) {
 	}
 }
 
+func TestFoldToggleIsUndoable(t *testing.T) {
+	m := newTestModel(t)
+	root := m.selected
+	updateModel(m, keyMsg(" "))
+	if !m.collapsed[root] {
+		t.Fatal("space did not collapse the node")
+	}
+	updateModel(m, keyMsg("u"))
+	if m.collapsed[root] {
+		t.Fatal("undo did not expand the node")
+	}
+	updateModel(m, tea.KeyMsg{Type: tea.KeyCtrlR})
+	if !m.collapsed[root] {
+		t.Fatal("redo did not collapse the node")
+	}
+}
+
+func TestSelectChildAutoExpandIsUndoable(t *testing.T) {
+	m := newTestModel(t)
+	root := m.selected
+	updateModel(m, keyMsg(" "))
+	updateModel(m, keyMsg("l"))
+	if m.collapsed[root] {
+		t.Fatal("navigating into a collapsed node did not expand it")
+	}
+	updateModel(m, keyMsg("u"))
+	if !m.collapsed[root] {
+		t.Fatal("undo did not restore the collapsed state")
+	}
+}
+
+func TestResizeClampsViewportDuringEdit(t *testing.T) {
+	m := newTestModel(t)
+	updateModel(m, keyMsg("e"))
+	m.viewportX = m.layout.Width
+	updateModel(m, tea.WindowSizeMsg{Width: 40, Height: 10})
+	limit := max(0, m.layout.Width-m.contentWidth())
+	if m.viewportX > limit {
+		t.Fatalf("viewport x = %d, want at most %d", m.viewportX, limit)
+	}
+	if strings.TrimSpace(m.View()) == "" {
+		t.Fatal("map did not render after shrinking the terminal")
+	}
+}
+
+func TestReplaceEditStartsEmpty(t *testing.T) {
+	m := newTestModel(t)
+	root := m.selected
+	updateModel(m, keyMsg("E"))
+	if m.mode != modeEdit || m.nodeInput.Value() != "" {
+		t.Fatalf("mode=%v input=%q, want an empty edit input", m.mode, m.nodeInput.Value())
+	}
+	updateModel(m, tea.KeyMsg{Type: tea.KeyEsc})
+	if m.doc.Text(root) != "Root" {
+		t.Fatalf("cancelled replace edit changed the text: %q", m.doc.Text(root))
+	}
+	updateModel(m, keyMsg("I"))
+	if m.mode != modeEdit || m.nodeInput.Value() != "" {
+		t.Fatal("I did not open a replace edit")
+	}
+	updateModel(m, tea.KeyMsg{Type: tea.KeyEsc})
+	updateModel(m, keyMsg("E"))
+	updateModel(m, keyMsg("Fresh"))
+	updateModel(m, tea.KeyMsg{Type: tea.KeyEnter})
+	if m.doc.Text(root) != "Fresh" {
+		t.Fatalf("committed replace edit = %q", m.doc.Text(root))
+	}
+}
+
+func newSearchTestModel(t *testing.T) *Model {
+	t.Helper()
+	doc := document.New("Root")
+	root := doc.Roots()[0]
+	_, _ = doc.AddChild(root, "Alpha one")
+	_, _ = doc.AddChild(root, "Beta")
+	_, _ = doc.AddChild(root, "Alpha two")
+	data, err := outline.Serialize(doc, nil, outline.DefaultStyle())
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := New(InitialDocument{Document: doc, Style: outline.DefaultStyle(), SavedData: data})
+	updateModel(m, tea.WindowSizeMsg{Width: 80, Height: 24})
+	return m
+}
+
+func TestSearchMatchesSubsequencesInOrder(t *testing.T) {
+	m := newSearchTestModel(t)
+	m.searchQuery = "alpo"
+	matches := m.searchMatches()
+	if len(matches) != 2 || m.doc.Text(matches[0]) != "Alpha one" || m.doc.Text(matches[1]) != "Alpha two" {
+		t.Fatalf("alpo matches = %v", matches)
+	}
+	m.searchQuery = "atw"
+	matches = m.searchMatches()
+	if len(matches) != 1 || m.doc.Text(matches[0]) != "Alpha two" {
+		t.Fatalf("atw matches = %v", matches)
+	}
+	m.searchQuery = "ALPHA"
+	matches = m.searchMatches()
+	if len(matches) != 2 {
+		t.Fatalf("uppercase query matches = %v", matches)
+	}
+	m.searchQuery = "zqx"
+	if matches := m.searchMatches(); len(matches) != 0 {
+		t.Fatalf("zqx matches = %v", matches)
+	}
+}
+
+func TestSearchFindsAndCyclesMatches(t *testing.T) {
+	m := newSearchTestModel(t)
+	updateModel(m, keyMsg("/"))
+	if m.mode != modeSearch {
+		t.Fatal("slash did not open search")
+	}
+	updateModel(m, keyMsg("alpha"))
+	updateModel(m, tea.KeyMsg{Type: tea.KeyEnter})
+	if m.mode != modeNormal {
+		t.Fatal("enter did not close search")
+	}
+	first := m.selected
+	if m.doc.Text(first) != "Alpha one" {
+		t.Fatalf("first match = %q", m.doc.Text(first))
+	}
+	if !strings.Contains(m.status, "1/2") {
+		t.Fatalf("status = %q", m.status)
+	}
+	updateModel(m, keyMsg("n"))
+	if m.doc.Text(m.selected) != "Alpha two" {
+		t.Fatalf("second match = %q", m.doc.Text(m.selected))
+	}
+	updateModel(m, keyMsg("n"))
+	if m.selected != first {
+		t.Fatal("search did not wrap around to the first match")
+	}
+	updateModel(m, keyMsg("N"))
+	if m.doc.Text(m.selected) != "Alpha two" {
+		t.Fatalf("previous match = %q", m.doc.Text(m.selected))
+	}
+}
+
+func TestSearchCancelsAndReportsNoMatches(t *testing.T) {
+	m := newSearchTestModel(t)
+	m.selected = m.doc.Roots()[0]
+	updateModel(m, keyMsg("/"))
+	updateModel(m, tea.KeyMsg{Type: tea.KeyEsc})
+	if m.mode != modeNormal || m.selected != m.doc.Roots()[0] {
+		t.Fatal("esc did not cancel search")
+	}
+	updateModel(m, keyMsg("n"))
+	if !strings.Contains(m.status, "No search") {
+		t.Fatalf("status without query = %q", m.status)
+	}
+	updateModel(m, keyMsg("/"))
+	updateModel(m, keyMsg("nothing"))
+	updateModel(m, tea.KeyMsg{Type: tea.KeyEnter})
+	if !strings.Contains(m.status, "No matches") {
+		t.Fatalf("status for no matches = %q", m.status)
+	}
+	if m.selected != m.doc.Roots()[0] {
+		t.Fatal("failed search moved the selection")
+	}
+}
+
+func TestSearchClearsInputButKeepsQueryForCycling(t *testing.T) {
+	m := newSearchTestModel(t)
+	updateModel(m, keyMsg("/"))
+	updateModel(m, keyMsg("alpha"))
+	updateModel(m, tea.KeyMsg{Type: tea.KeyEnter})
+	updateModel(m, keyMsg("j"))
+	updateModel(m, keyMsg("/"))
+	if m.searchInput.Value() != "" {
+		t.Fatalf("reopened search input = %q, want empty", m.searchInput.Value())
+	}
+	updateModel(m, tea.KeyMsg{Type: tea.KeyEsc})
+	updateModel(m, keyMsg("n"))
+	if !strings.Contains(m.status, "Alpha") {
+		t.Fatalf("previous query was lost after reopening search: status=%q", m.status)
+	}
+	updateModel(m, keyMsg("/"))
+	updateModel(m, tea.KeyMsg{Type: tea.KeyEnter})
+	if !strings.Contains(m.status, "No search") {
+		t.Fatalf("empty input must reset the query: status=%q", m.status)
+	}
+}
+
 func TestEditEscapeRestoresNewNodeTransaction(t *testing.T) {
 	m := newTestModel(t)
 	before := m.doc.Len()

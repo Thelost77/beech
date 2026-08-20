@@ -28,8 +28,10 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.pathInput.Width = max(10, m.viewWidth()-4)
+		m.searchInput.Width = max(10, m.viewWidth())
 		if m.mode == modeEdit {
 			m.nodeInput.Width = max(10, m.viewWidth())
+			m.clampViewport()
 		} else {
 			m.ensureSelectedVisible()
 		}
@@ -51,6 +53,8 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateEdit(msg)
 		case modeSaveAs:
 			return m.updateSaveAs(msg)
+		case modeSearch:
+			return m.updateSearch(msg)
 		case modeHelp:
 			if msg.Type == tea.KeyEsc || msg.String() == "?" || msg.String() == "q" {
 				m.mode = modeNormal
@@ -66,6 +70,11 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	if m.mode == modeSaveAs {
 		var cmd tea.Cmd
 		m.pathInput, cmd = m.pathInput.Update(message)
+		return m, cmd
+	}
+	if m.mode == modeSearch {
+		var cmd tea.Cmd
+		m.searchInput, cmd = m.searchInput.Update(message)
 		return m, cmd
 	}
 	return m, nil
@@ -116,6 +125,15 @@ func (m *Model) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "e", "i":
 		m.beginEdit(m.selected, m.doc.Text(m.selected), nil)
 		return m, m.nodeInput.Focus()
+	case "E", "I":
+		m.beginEdit(m.selected, "", nil)
+		return m, m.nodeInput.Focus()
+	case "/", "ctrl+f":
+		return m.openSearch()
+	case "n":
+		actionCmd = m.applyOutcome(m.searchNext(1))
+	case "N":
+		actionCmd = m.applyOutcome(m.searchNext(-1))
 	case "enter", "o":
 		return m.addSibling()
 	case "tab", "O":
@@ -269,14 +287,15 @@ func (m *Model) toggleSelectedFold() actionOutcome {
 		return actionOutcome{message: "Leaf nodes cannot be collapsed"}
 	}
 	title := m.doc.Text(m.selected)
-	if m.collapsed[m.selected] {
-		m.collapsed[m.selected] = false
-		m.changed()
-		return actionOutcome{kind: ui.FeedbackFold, message: "Expanded “" + title + "”", affected: m.subtreeNodeIDs(m.selected)}
-	}
-	m.collapsed[m.selected] = true
+	before := m.snapshot()
+	folding := !m.collapsed[m.selected]
+	m.collapsed[m.selected] = folding
+	m.pushUndo(before)
 	m.changed()
-	return actionOutcome{kind: ui.FeedbackFold, message: "Collapsed “" + title + "”", affected: []document.NodeID{m.selected}}
+	if folding {
+		return actionOutcome{kind: ui.FeedbackFold, message: "Collapsed “" + title + "”", affected: []document.NodeID{m.selected}}
+	}
+	return actionOutcome{kind: ui.FeedbackFold, message: "Expanded “" + title + "”", affected: m.subtreeNodeIDs(m.selected)}
 }
 
 func (m *Model) moveSelected(delta int) actionOutcome {
@@ -556,6 +575,9 @@ func (m *Model) handleCtrlC() (tea.Model, tea.Cmd) {
 	case modeSaveAs:
 		m.mode = modeNormal
 		m.pathInput.Blur()
+	case modeSearch:
+		m.mode = modeNormal
+		m.searchInput.Blur()
 	case modeHelp:
 		m.mode = modeNormal
 	}

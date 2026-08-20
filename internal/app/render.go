@@ -3,11 +3,11 @@ package app
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/Thelost77/beech/internal/document"
 	"github.com/Thelost77/beech/internal/highlight"
-	"github.com/Thelost77/beech/internal/layout"
 	"github.com/Thelost77/beech/internal/ui"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -100,7 +100,7 @@ func (m *Model) mapView(width, height int) []string {
 				textX += uniseg.StringWidth(span.Text)
 			}
 			if node.CollapseCount > 0 && row == node.CollapseLine {
-				marker := "▸ " + itoa(node.CollapseCount)
+				marker := "▸ " + strconv.Itoa(node.CollapseCount)
 				if node.CollapseOffset > 0 {
 					marker = "  " + marker
 				}
@@ -114,11 +114,7 @@ func (m *Model) mapView(width, height int) []string {
 }
 
 func (m *Model) nodeCellStyle(id document.NodeID) ui.CellStyle {
-	return m.nodeCellStyleWithLayout(id, m.layout, m.branchIndexes(), m.activePath())
-}
-
-func (m *Model) nodeCellStyleWithLayout(id document.NodeID, result layout.Result, branches map[document.NodeID]int8, activePath map[document.NodeID]bool) ui.CellStyle {
-	node := result.Nodes[id]
+	node := m.layout.Nodes[id]
 	role := ui.RoleLeaf
 	switch {
 	case node.Depth == 0:
@@ -130,9 +126,9 @@ func (m *Model) nodeCellStyleWithLayout(id document.NodeID, result layout.Result
 	}
 	return ui.CellStyle{
 		Role:     role,
-		Branch:   branches[id],
+		Branch:   m.branchIndexes()[id],
 		Selected: id == m.selected,
-		Active:   activePath[id],
+		Active:   m.activePath()[id],
 		Feedback: m.feedbackKind(id),
 	}
 }
@@ -194,13 +190,15 @@ func (m *Model) viewFooter(width int) string {
 			content = m.nodeInput.View()
 		case modeSaveAs:
 			content = m.pathInput.View()
+		case modeSearch:
+			content = m.searchInput.View()
 		case modeHelp:
 			content = m.styles.Muted.Render("? / esc close help")
 		default:
 			if m.status != "" {
 				content = m.styles.Accent.Render(m.status) + m.styles.Muted.Render("  •  ? help")
 			} else {
-				content = m.styles.Muted.Render("enter sibling  tab child  hjkl move  e edit  space fold  s save  ? help")
+				content = m.styles.Muted.Render("enter sibling  tab child  hjkl move  e edit  space fold  / search  s save  ? help")
 			}
 		}
 	}
@@ -216,6 +214,7 @@ func (m *Model) helpView(width, height int) []string {
 		"  enter / o     create sibling",
 		"  tab / O       create child",
 		"  e / i         edit node",
+		"  E / I         edit node, replacing text",
 		"  d / y / p / P cut, copy, paste child/sibling",
 		"  J / K         move sibling down/up",
 		"  [ / ]         promote/demote",
@@ -225,6 +224,8 @@ func (m *Model) helpView(width, height int) []string {
 		"  h j k l       parent, down, up, child",
 		"  arrows        navigate",
 		"  space         collapse/expand",
+		"  /             search nodes",
+		"  n / N         next/previous match",
 		"  c / g         center/go to root",
 		"  ctrl+arrows   pan viewport",
 		"",

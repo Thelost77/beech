@@ -31,7 +31,9 @@ func (m *Model) selectChild() {
 		return
 	}
 	if m.collapsed[m.selected] {
+		before := m.snapshot()
 		m.collapsed[m.selected] = false
+		m.pushUndo(before)
 		m.changed()
 	}
 	current := m.layout.Nodes[m.selected]

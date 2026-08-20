@@ -47,7 +47,7 @@ go vet ./...
 - Edit node titles on the bottom input line, like h-m-m. Keep the map and
   its layout frozen while typing; apply the new title and rebuild the layout
   once, on commit.
-- Keep node editing and Save As in separate text input models.
+- Keep node editing, Save As, and search in separate text input models.
 - Capture values in asynchronous commands. Do not capture the application model.
 - `esc` closes or cancels the active mode. It never quits.
 - Lowercase `q` saves before quitting. Uppercase `Q` quits immediately and

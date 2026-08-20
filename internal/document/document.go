@@ -97,16 +97,20 @@ func (d *Document) Node(id NodeID) (Node, bool) {
 	return node, true
 }
 
-// Text returns a node's text.
+// Text returns a node's text, or the empty string for an unknown node.
 func (d *Document) Text(id NodeID) string {
-	node, _ := d.Node(id)
-	return node.Text
+	if d == nil {
+		return ""
+	}
+	return d.nodes[id].Text
 }
 
 // Parent returns a node's parent, or NoNode for a root or unknown node.
 func (d *Document) Parent(id NodeID) NodeID {
-	node, _ := d.Node(id)
-	return node.Parent
+	if d == nil {
+		return NoNode
+	}
+	return d.nodes[id].Parent
 }
 
 // Children returns a node's children in document order.
@@ -364,13 +368,15 @@ func (d *Document) siblings(parent NodeID) []NodeID {
 	return slices.Clone(node.Children)
 }
 
+// setSiblings stores a slice of sibling IDs. Callers must pass a slice they
+// own, because it is stored without copying.
 func (d *Document) setSiblings(parent NodeID, siblings []NodeID) {
 	if parent == NoNode {
-		d.roots = slices.Clone(siblings)
+		d.roots = siblings
 		return
 	}
 	node := d.nodes[parent]
-	node.Children = slices.Clone(siblings)
+	node.Children = siblings
 	d.nodes[parent] = node
 }
 

@@ -3,6 +3,7 @@ package layout
 import (
 	"cmp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Thelost77/beech/internal/document"
@@ -363,19 +364,5 @@ func collapseMarker(count int, inline bool) string {
 	if inline {
 		prefix = "  " + prefix
 	}
-	return prefix + itoa(count)
-}
-
-func itoa(value int) string {
-	if value == 0 {
-		return "0"
-	}
-	var digits [20]byte
-	index := len(digits)
-	for value > 0 {
-		index--
-		digits[index] = byte('0' + value%10)
-		value /= 10
-	}
-	return string(digits[index:])
+	return prefix + strconv.Itoa(count)
 }
